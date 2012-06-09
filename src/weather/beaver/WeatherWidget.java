@@ -21,6 +21,8 @@ package weather.beaver;
 //TODO: set a timer and recieve via implicit broadcastreciever instead of update period
 //TODO: methods to launch a notification with text, url, some kind of weather warning icon
 //TODO: consider killing the service once its job is done
+import java.util.List;
+
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -33,6 +35,9 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.RemoteViews;
+import com.vanaltj.canweather.*;
+import com.vanaltj.canweather.data.Place;
+import com.vanaltj.canweather.data.WeatherData;
 
 /**
  * Define a simple widget that shows the weather according to environment canada
@@ -108,7 +113,19 @@ public class WeatherWidget extends AppWidgetProvider {
             RemoteViews views = null;
             boolean hasUpdate = false;
             //do the API call...
-            
+            /*
+            WeatherHelper weatherSource = WeatherHelperFactory.getWeatherHelper();
+            List<Place> places = weatherSource.getPlaces();
+            for (Place place : places) {
+                Log.d("weatherbeaver", place.getName());
+                WeatherData weather = weatherSource.getWeather(place);
+                Log.d("weatherbeaver","Current Temp: " + weather.getCurrentTemp());
+                Log.d("weatherbeaver","Current Conditions: " + weather.getCurrentConditions());
+                Log.d("weatherbeaver","High: " + weather.getTodayHigh());
+                Log.d("weatherbeaver","Low: " + weather.getTodayLow());
+                Log.d("weatherbeaver","Upcoming Conditions: " + weather.getUpcomingConditions());
+            }
+            */
             //Matcher matcher = Pattern.compile(WOTD_PATTERN).matcher(pageContent);
             if (hasUpdate) {
                 // Build an update that holds the updated widget contents
