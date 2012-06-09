@@ -44,6 +44,7 @@ import com.vanaltj.canweather.data.WeatherData;
  * an update we spawn a background {@link Service} to perform the API queries.
  */
 public class WeatherWidget extends AppWidgetProvider {
+
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         // To prevent any ANR timeouts, we perform the update in a service
@@ -53,8 +54,41 @@ public class WeatherWidget extends AppWidgetProvider {
     }
 
     public static class UpdateService extends Service {
+
+        private Loader loader = new Loader();
+
+        private class Loader implements Runnable {
+
+            private boolean finished = false;
+
+            public void run() {
+                // TODO do the full initialization.
+
+                Log.d("weatherbeaver", "Getting weatherhelper.");
+                WeatherHelper weatherSource = WeatherHelperFactory.getWeatherHelper();
+                Log.d("weatherbeaver", "Getting places.");
+                List<Place> places = weatherSource.getPlaces();
+                Log.d("weatherbeaver", "Got places.");
+                for (Place place : places) {
+                    Log.d("weatherbeaver", place.getName());
+                    WeatherData weather = weatherSource.getWeather(place);
+                    Log.d("weatherbeaver","Current Temp: " + weather.getCurrentTemp());
+                    Log.d("weatherbeaver","Current Conditions: " + weather.getCurrentConditions());
+                    Log.d("weatherbeaver","High: " + weather.getTodayHigh());
+                    Log.d("weatherbeaver","Low: " + weather.getTodayLow());
+                    Log.d("weatherbeaver","Upcoming Conditions: " + weather.getUpcomingConditions());
+                }
+                finished = true;
+            }
+
+            public boolean finished() {
+                return finished;
+            }
+            
+        }
         @Override
-        public void onStart(Intent intent, int startId) {
+        public void onCreate() {
+            new Thread(loader).start();
         	
             Log.d("WeatherBeaver", "WeatherWidget::UpdateService::onStart");
 
@@ -86,48 +120,12 @@ public class WeatherWidget extends AppWidgetProvider {
          *  Will block until the online API returns.
          */
         public RemoteViews buildUpdate(Context context) {
-        	/*
-            // Pick out month names from resources
-            Resources res = context.getResources();
-            String[] monthNames = res.getStringArray(R.array.month_names);
-
-            // Find current month and day
-            Time today = new Time();
-            today.setToNow();
-
-            // Build the page title for today, such as "March 21"
-            String pageName = res.getString(R.string.template_wotd_title,
-                    monthNames[today.month], today.monthDay);
-            String pageContent = null;
-
-            try {
-                // Try querying the Wiktionary API for today's word
-                SimpleWikiHelper.prepareUserAgent(context);
-                pageContent = SimpleWikiHelper.getPageContent(pageName, false);
-            } catch (ApiException e) {
-                Log.e("WordWidget", "Couldn't contact API", e);
-            } catch (ParseException e) {
-                Log.e("WordWidget", "Couldn't parse API response", e);
-            }
-			*/
             RemoteViews views = null;
-            boolean hasUpdate = false;
-            //do the API call...
-            /*
-            WeatherHelper weatherSource = WeatherHelperFactory.getWeatherHelper();
-            List<Place> places = weatherSource.getPlaces();
-            for (Place place : places) {
-                Log.d("weatherbeaver", place.getName());
-                WeatherData weather = weatherSource.getWeather(place);
-                Log.d("weatherbeaver","Current Temp: " + weather.getCurrentTemp());
-                Log.d("weatherbeaver","Current Conditions: " + weather.getCurrentConditions());
-                Log.d("weatherbeaver","High: " + weather.getTodayHigh());
-                Log.d("weatherbeaver","Low: " + weather.getTodayLow());
-                Log.d("weatherbeaver","Upcoming Conditions: " + weather.getUpcomingConditions());
+            // TODO build default thingy.  Maybe this is the loading thing.
+            if (isLoading()) {
+                // TODO build "loading" view.
             }
-            */
-            //Matcher matcher = Pattern.compile(WOTD_PATTERN).matcher(pageContent);
-            if (hasUpdate) {
+            if (canUpdate()) {
                 // Build an update that holds the updated widget contents
             	/*
             	 views = new RemoteViews(context.getPackageName(), R.layout.widget_weather);
@@ -174,6 +172,15 @@ public class WeatherWidget extends AppWidgetProvider {
         	nm.notify(1, currentNotification);
         	
         }
+
+        private boolean canUpdate() {
+            return false;
+        }
+
+        private boolean isLoading() {
+            return true;
+        }
+
     }//updateService
     
     
