@@ -15,10 +15,14 @@
  */
 
 package weather.beaver;
-
 //import com.example.android.beaver.SimpleWikiHelper.ApiException;
 //import com.example.android.beaver.SimpleWikiHelper.ParseException;
 
+//TODO: set a timer and recieve via implicit broadcastreciever instead of update period
+//TODO: methods to launch a notification with text, url, some kind of weather warning icon
+//TODO: consider killing the service once its job is done
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.appwidget.AppWidgetManager;
@@ -26,15 +30,9 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
-import android.net.Uri;
 import android.os.IBinder;
-import android.text.format.Time;
 import android.util.Log;
 import android.widget.RemoteViews;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Define a simple widget that shows the weather according to environment canada
@@ -45,11 +43,24 @@ public class WeatherWidget extends AppWidgetProvider {
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         // To prevent any ANR timeouts, we perform the update in a service
         context.startService(new Intent(context, UpdateService.class));
+        Log.d("WeatherBeaver", "WeatherWidget::OnUpdate");
+        
     }
 
     public static class UpdateService extends Service {
         @Override
         public void onStart(Intent intent, int startId) {
+        	
+            Log.d("WeatherBeaver", "WeatherWidget::UpdateService::onStart");
+
+        	
+        	Intent activityIntent = new Intent(this, WeatherActivity.class);
+        	
+            activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        	PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, activityIntent, 0);
+        	RemoteViews views = new RemoteViews(this.getPackageName(), R.layout.widget_weather);
+            //RemoteViews views = new RemoteViews(this.getPackageName(), R.layout.widget_message);
+            views.setOnClickPendingIntent(R.id.widget, pendingIntent); 
             // Build the widget update for today
             RemoteViews updateViews = buildUpdate(this);
 
@@ -101,8 +112,12 @@ public class WeatherWidget extends AppWidgetProvider {
             //Matcher matcher = Pattern.compile(WOTD_PATTERN).matcher(pageContent);
             if (hasUpdate) {
                 // Build an update that holds the updated widget contents
-                views = new RemoteViews(context.getPackageName(), R.layout.widget_word);
-                /*
+            	/*
+            	 views = new RemoteViews(context.getPackageName(), R.layout.widget_weather);
+                 Intent notificationIntent = new Intent(this, WeatherActivity.class);
+             	PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+                 views.setOnClickPendingIntent(R.id.widget, pendingIntent); 
+                
                 String wordTitle = matcher.group(1);
                 views.setTextViewText(R.id.word_title, wordTitle);
                 views.setTextViewText(R.id.word_type, matcher.group(2));
@@ -111,17 +126,38 @@ public class WeatherWidget extends AppWidgetProvider {
                 // When user clicks on widget, launch to Wiktionary definition page
                 String definePage = String.format("%s://%s/%s", ExtendedWikiHelper.WIKI_AUTHORITY,
                         ExtendedWikiHelper.WIKI_LOOKUP_HOST, wordTitle);
-                Intent defineIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(definePage));
-                PendingIntent pendingIntent = PendingIntent.getActivity(context,
-                        0 , defineIntent, 0 );
-                views.setOnClickPendingIntent(R.id.widget, pendingIntent);
                 */
+                
+                
+                
             } else {
-                // Didn't find word of day, so show error message
+                // Didn't find weather, so show error message
                 views = new RemoteViews(context.getPackageName(), R.layout.widget_message);
                 views.setTextViewText(R.id.message, context.getString(R.string.widget_error));
+                sendNotification("robots!", "whatever details", "http://google.com");
             }
             return views;
         }
-    }
+        public void sendNotification(String ticker, String details, String uri){
+        	NotificationManager nm = (NotificationManager)this.getSystemService(Context.NOTIFICATION_SERVICE);
+        	int icon = R.drawable.star_logo;
+        	long when = System.currentTimeMillis();
+        	Notification currentNotification = new Notification(icon, ticker, when);
+        	
+        	//now set a bunch of bullcrap
+        	Context context = getApplicationContext();
+        	CharSequence contentTitle = context.getString(R.string.notification_title);
+        	
+        	CharSequence contentText = "Weatherbeaver weather warning";
+        	Intent notificationIntent = new Intent(this, WeatherActivity.class);
+        	PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+
+        	currentNotification.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
+        	
+        	nm.notify(1, currentNotification);
+        	
+        }
+    }//updateService
+    
+    
 }
