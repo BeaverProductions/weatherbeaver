@@ -38,6 +38,7 @@ import android.widget.RemoteViews;
 import com.vanaltj.canweather.*;
 import com.vanaltj.canweather.data.Place;
 import com.vanaltj.canweather.data.WeatherData;
+import com.vanaltj.canweather.envcan.XMLWrapper;
 
 /**
  * Define a simple widget that shows the weather according to environment canada
@@ -54,30 +55,63 @@ public class WeatherWidget extends AppWidgetProvider {
     }
 
     public static class UpdateService extends Service {
-
-        private Loader loader = new Loader();
-
+    	
+    	//TODO: what is the state of this thing once finished=true?
+        //private Loader loader = new Loader();
+    	private boolean finished = false;
+    	
+    	
+    	
+    	
         private class Loader implements Runnable {
-
-            private boolean finished = false;
+        	
+        	private Context myContext = null;
+        	
+            public Loader(Context c){
+            	myContext = c;
+            	
+            }
 
             public void run() {
                 // TODO do the full initialization.
 
-                Log.d("weatherbeaver", "Getting weatherhelper.");
-                WeatherHelper weatherSource = WeatherHelperFactory.getWeatherHelper();
-                Log.d("weatherbeaver", "Getting places.");
-                List<Place> places = weatherSource.getPlaces();
-                Log.d("weatherbeaver", "Got places.");
-                for (Place place : places) {
-                    Log.d("weatherbeaver", place.getName());
-                    WeatherData weather = weatherSource.getWeather(place);
-                    Log.d("weatherbeaver","Current Temp: " + weather.getCurrentTemp());
-                    Log.d("weatherbeaver","Current Conditions: " + weather.getCurrentConditions());
-                    Log.d("weatherbeaver","High: " + weather.getTodayHigh());
-                    Log.d("weatherbeaver","Low: " + weather.getTodayLow());
-                    Log.d("weatherbeaver","Upcoming Conditions: " + weather.getUpcomingConditions());
-                }
+                Log.d("WeatherBeaver", "Getting weatherhelper.");
+                WeatherHelper weatherSource = null;
+               // try{
+                	weatherSource = WeatherHelperFactory.getWeatherHelper(true);//TODO:true means debug mode
+                
+	                Log.d("WeatherBeaver", "Getting places.");
+	                List<Place> places = weatherSource.getPlaces();
+	                Log.d("WeatherBeaver", "Got places.");
+	                for (Place place : places) {
+	                    Log.d("WeatherBeaver", place.getName());
+	                    WeatherData weather = weatherSource.getWeather(place);
+	                    if(weather != null){
+		                    Log.d("WeatherBeaver","Current Temp: " + weather.getCurrentTemp());
+		                    Log.d("WeatherBeaver","Current Conditions: " + weather.getCurrentConditions());
+		                    Log.d("WeatherBeaver","High: " + weather.getTodayHigh());
+		                    Log.d("WeatherBeaver","Low: " + weather.getTodayLow());
+		                    Log.d("WeatherBeaver","Upcoming Conditions: " + weather.getUpcomingConditions());
+		                    
+		                    String widgetUpdate = "Current Temp: " + weather.getCurrentTemp() +"Current Conditions: " + weather.getCurrentConditions();
+		                    RemoteViews updateViews = new RemoteViews(myContext.getPackageName(), R.layout.widget_message);
+		                    updateViews.setTextViewText(R.id.message, widgetUpdate);
+		                    ComponentName thisWidget = new ComponentName(myContext, WeatherWidget.class);
+		                    AppWidgetManager manager = AppWidgetManager.getInstance(myContext);
+		                    manager.updateAppWidget(thisWidget, updateViews);
+		                    
+	                    }
+	                    
+	                }
+                //}catch(XMLWrapper.XMLCreationException ex){
+               	 //Log.d("WeatherBeaver", ex.getMessage());
+                 String widgetUpdate = "could not find weather";
+               	 RemoteViews updateViews = new RemoteViews(myContext.getPackageName(), R.layout.widget_message);
+                 updateViews.setTextViewText(R.id.message, widgetUpdate);
+                 ComponentName thisWidget = new ComponentName(myContext, WeatherWidget.class);
+                 AppWidgetManager manager = AppWidgetManager.getInstance(myContext);
+                 manager.updateAppWidget(thisWidget, updateViews);
+               //}
                 finished = true;
             }
 
@@ -88,7 +122,9 @@ public class WeatherWidget extends AppWidgetProvider {
         }
         @Override
         public void onCreate() {
-            new Thread(loader).start();
+        	//TODO: check whether the thread is running (maybe even in onStart())
+        	finished=false;
+            new Thread(new Loader(this)).start();
         	
             Log.d("WeatherBeaver", "WeatherWidget::UpdateService::onStart");
 
@@ -148,7 +184,8 @@ public class WeatherWidget extends AppWidgetProvider {
             } else {
                 // Didn't find weather, so show error message
                 views = new RemoteViews(context.getPackageName(), R.layout.widget_message);
-                views.setTextViewText(R.id.message, context.getString(R.string.widget_error));
+                //views.setTextViewText(R.id.message, context.getString(R.string.widget_error));
+                views.setTextViewText(R.id.message, "WTF");
                 sendNotification("robots!", "whatever details", "http://google.com");
             }
             return views;
