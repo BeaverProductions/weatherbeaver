@@ -21,7 +21,7 @@ package weather.beaver;
 //TODO: set a timer and recieve via implicit broadcastreciever instead of update period
 //TODO: methods to launch a notification with text, url, some kind of weather warning icon
 //TODO: consider killing the service once its job is done
-import java.util.List;
+import java.util.Set;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -81,7 +81,7 @@ public class WeatherWidget extends AppWidgetProvider {
                 	weatherSource = WeatherHelperFactory.getWeatherHelper(true);//TODO:true means debug mode
                 
 	                Log.d("WeatherBeaver", "Getting places.");
-	                List<Place> places = weatherSource.getPlaces();
+	                Set<Place> places = weatherSource.getPlaces();
 	                Log.d("WeatherBeaver", "Got places.");
 	                for (Place place : places) {
 	                    Log.d("WeatherBeaver", place.getName());
