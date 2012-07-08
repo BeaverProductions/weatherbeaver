@@ -53,5 +53,8 @@
 
     <string name="empty_result">No entry found</string>
     <string name="notification_title">Weather Warning</string>
+    <string name="update_service_stopped">Weatherbeaver service stopped</string>
+    
+    
 
 </resources>

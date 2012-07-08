@@ -35,6 +35,8 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.RemoteViews;
+import android.widget.Toast;
+
 import com.vanaltj.canweather.*;
 import com.vanaltj.canweather.data.Place;
 import com.vanaltj.canweather.data.WeatherData;
@@ -46,25 +48,38 @@ import com.vanaltj.canweather.envcan.XMLWrapper;
  */
 public class WeatherWidget extends AppWidgetProvider {
 
+	private boolean updaterStarted;
+	private UpdateService updater = null;
+
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         // To prevent any ANR timeouts, we perform the update in a service
+        Toast.makeText(context, "WeatherWidget::OnUpdate", Toast.LENGTH_SHORT).show();
+	    if(UpdateService.weatherUpdate != null)
+	    {
+	        String widgetUpdate = "Current Temp: " + Math.round(UpdateService.weatherUpdate.getCurrentTemp()) + ", " + UpdateService.weatherUpdate.getCurrentConditions();
+	        RemoteViews updateViews = new RemoteViews(context.getPackageName(), R.layout.widget_message);
+	        updateViews.setTextViewText(R.id.message, widgetUpdate);
+	        ComponentName thisWidget = new ComponentName(context, WeatherWidget.class);
+	        AppWidgetManager manager = AppWidgetManager.getInstance(context);
+	        manager.updateAppWidget(thisWidget, updateViews);
+	    }
+        
         context.startService(new Intent(context, UpdateService.class));
         Log.d("WeatherBeaver", "WeatherWidget::OnUpdate");
         
     }
-
+    
+    //TODO: on removal, kill the service if there are no more widgets left
+    
     public static class UpdateService extends Service {
     	
     	//TODO: what is the state of this thing once finished=true?
         //private Loader loader = new Loader();
-    	private boolean finished = false;
-    	
-    	
-    	
-    	
+    	private boolean finished = false;    	
+    	public static WeatherData weatherUpdate = null;
+
         private class Loader implements Runnable {
-        	
         	private Context myContext = null;
         	
             public Loader(Context c){
@@ -77,7 +92,7 @@ public class WeatherWidget extends AppWidgetProvider {
 
                 Log.d("WeatherBeaver", "Getting weatherhelper.");
                 WeatherHelper weatherSource = null;
-               // try{
+                try{
                 	weatherSource = WeatherHelperFactory.getWeatherHelper(true);//TODO:true means debug mode
                 
 	                Log.d("WeatherBeaver", "Getting places.");
@@ -92,26 +107,35 @@ public class WeatherWidget extends AppWidgetProvider {
 		                    Log.d("WeatherBeaver","High: " + weather.getTodayHigh());
 		                    Log.d("WeatherBeaver","Low: " + weather.getTodayLow());
 		                    Log.d("WeatherBeaver","Upcoming Conditions: " + weather.getUpcomingConditions());
-		                    
-		                    String widgetUpdate = "Current Temp: " + weather.getCurrentTemp() +"Current Conditions: " + weather.getCurrentConditions();
-		                    RemoteViews updateViews = new RemoteViews(myContext.getPackageName(), R.layout.widget_message);
-		                    updateViews.setTextViewText(R.id.message, widgetUpdate);
-		                    ComponentName thisWidget = new ComponentName(myContext, WeatherWidget.class);
-		                    AppWidgetManager manager = AppWidgetManager.getInstance(myContext);
-		                    manager.updateAppWidget(thisWidget, updateViews);
-		                    
+		                    weatherUpdate = weather;
+		                 
+		                    /*
+		                    String widgetUpdate = "Current Temp: " + Math.round(weather.getCurrentTemp()) + ", " + weather.getCurrentConditions();
+		        	        RemoteViews updateViews = new RemoteViews(myContext.getPackageName(), R.layout.widget_message);
+		        	        updateViews.setTextViewText(R.id.message, widgetUpdate);
+		        	        ComponentName thisWidget = new ComponentName(myContext, WeatherWidget.class);
+		        	        AppWidgetManager manager = AppWidgetManager.getInstance(myContext);
+		        	        manager.updateAppWidget(thisWidget, updateViews);
+		                    */
 	                    }
 	                    
 	                }
-                //}catch(XMLWrapper.XMLCreationException ex){
-               	 //Log.d("WeatherBeaver", ex.getMessage());
+                }catch(XMLWrapper.XMLCreationException ex){
+                 StackTraceElement[] stacktrace = ex.getStackTrace();
+                 for(int i = 0 ; i < stacktrace.length ; i++) {
+                	 Log.d("WeatherBeaver", stacktrace[i].toString());
+                 }
+                	/*
                  String widgetUpdate = "could not find weather";
                	 RemoteViews updateViews = new RemoteViews(myContext.getPackageName(), R.layout.widget_message);
                  updateViews.setTextViewText(R.id.message, widgetUpdate);
                  ComponentName thisWidget = new ComponentName(myContext, WeatherWidget.class);
                  AppWidgetManager manager = AppWidgetManager.getInstance(myContext);
                  manager.updateAppWidget(thisWidget, updateViews);
-               //}
+                 */
+                 //Toast.makeText(myContext, "WeatherWidget exception during update from server", Toast.LENGTH_SHORT).show();
+
+                }
                 finished = true;
             }
 
@@ -120,6 +144,7 @@ public class WeatherWidget extends AppWidgetProvider {
             }
             
         }
+        
         @Override
         public void onCreate() {
         	//TODO: check whether the thread is running (maybe even in onStart())
@@ -130,21 +155,29 @@ public class WeatherWidget extends AppWidgetProvider {
 
         	
         	Intent activityIntent = new Intent(this, WeatherActivity.class);
-        	
             activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         	PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, activityIntent, 0);
         	RemoteViews views = new RemoteViews(this.getPackageName(), R.layout.widget_weather);
             //RemoteViews views = new RemoteViews(this.getPackageName(), R.layout.widget_message);
             views.setOnClickPendingIntent(R.id.widget, pendingIntent); 
+            
+            /*
             // Build the widget update for today
             RemoteViews updateViews = buildUpdate(this);
-
             // Push update for this widget to the home screen
             ComponentName thisWidget = new ComponentName(this, WeatherWidget.class);
             AppWidgetManager manager = AppWidgetManager.getInstance(this);
             manager.updateAppWidget(thisWidget, updateViews);
+            */
         }
-
+        
+        @Override
+        public void onDestroy() {
+            
+            // Tell the user we stopped.
+            Toast.makeText(this, R.string.update_service_stopped, Toast.LENGTH_SHORT).show();
+        }
+        
         @Override
         public IBinder onBind(Intent intent) {
             return null;
