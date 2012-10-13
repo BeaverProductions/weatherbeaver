@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- *
+ * Copyright (C) 2012 Marek Laskowski
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,9 +18,8 @@ package weather.beaver;
 //import com.example.android.beaver.SimpleWikiHelper.ApiException;
 //import com.example.android.beaver.SimpleWikiHelper.ParseException;
 
-//TODO: set a timer and recieve via implicit broadcastreciever instead of update period
+
 //TODO: methods to launch a notification with text, url, some kind of weather warning icon
-//TODO: consider killing the service once its job is done
 //TODO: on widget removal, kill the service if there are no more widgets left
 
 import java.util.Set;
@@ -55,55 +54,50 @@ import com.vanaltj.canweather.envcan.XMLWrapper;
 
 public class WeatherWidget extends BroadcastReceiver {
 
-	public static final int agressiveUpdateInterval = 60000; // 1 minutes
-	public static final int normalUpdateInterval = 300000; // 5 minutes
-	public static final String ACTION_UPDATE_TIMER_EXPIRED = "WEATHER_UPDATE";
+	//public static final int agressiveUpdateInterval = 60000; // 1 minutes - not used anymore: now using an intent broadcast, rather than polling a shared object
+	public static final int defaultUpdateInterval = 300000; // 5 minutes
+	public static final String ACTION_UPDATE_TIMER_EXPIRED = "WEATHERBEAVER_TIMER_EXPIRED";
+	public static final String ACTION_WEATHER_UPDATE_AVAILABLE = "WEATHERBEAVER_WEATHER_AVAILABLE";
+	public static final String INTENT_PAYLOAD_CURRENT_TEMPERATURE = "WEATHERBEAVER_CURRENT_TEMP";
+	public static final String INTENT_PAYLOAD_CURRENT_CONDITIONS = "WEATHERBEAVER_CURRENT_CONDITIONS";
+
 
 
     //public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
 	@Override
     public void onReceive(Context context, Intent intent){
         // To prevent any ANR timeouts, we perform the update in a service
-        Toast.makeText(context, "WeatherWidget::onReceive, action: " + intent.getAction(), Toast.LENGTH_SHORT).show();
-        //TODO: look at intent.getAction() and do something sensible there depending on the type
+        //Toast.makeText(context, "WeatherWidget::onReceive, action: " + intent.getAction(), Toast.LENGTH_SHORT).show();
         if(intent.getAction().equals(AppWidgetManager.ACTION_APPWIDGET_UPDATE) || intent.getAction().equals(WeatherWidget.ACTION_UPDATE_TIMER_EXPIRED)){
-        	if(UpdateService.weatherUpdate != null)
-    	    {
-    	    	//got a regular update. After the update, We can probably kill the service *setting UpdateService.weatherUpdate to null*
-    	        String widgetUpdate = "Current Temp: " + Math.round(UpdateService.weatherUpdate.getCurrentTemp()) + ", " + UpdateService.weatherUpdate.getCurrentConditions();
-    	        RemoteViews updateViews = new RemoteViews(context.getPackageName(), R.layout.widget_message);
-    	        updateViews.setTextViewText(R.id.message, widgetUpdate);
-    	        ComponentName thisWidget = new ComponentName(context, WeatherWidget.class);
-    	        
-    	        //set the clicking behavior
-    	        Intent activityIntent = new Intent(context, WeatherActivity.class);
-    	        activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    	    	PendingIntent pendingIntent = PendingIntent.getActivity(context	, 0, activityIntent, 0);
-    	    	//RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_weather);
-    	        //RemoteViews views = new RemoteViews(this.getPackageName(), R.layout.widget_message);
-    	        updateViews.setOnClickPendingIntent(R.id.message, pendingIntent);         
-    	        
-    	        AppWidgetManager manager = AppWidgetManager.getInstance(context);
-    	        manager.updateAppWidget(thisWidget, updateViews);
-    	        startAlarm(context, WeatherWidget.normalUpdateInterval);
-    	        
-    	        UpdateService.weatherUpdate = null;
-    	    }else{
-    	    	//update not available, request short update.
-    	        startAlarm(context, WeatherWidget.agressiveUpdateInterval);
-    	        context.startService(new Intent(context, UpdateService.class));
-
-    	    }
+        	
+        	//TODO: what should happen now is it starts a repeating timer with the update interval
+        	//also start the service
+        }else if(intent.getAction().equals(WeatherWidget.ACTION_WEATHER_UPDATE_AVAILABLE)){
+        	Toast.makeText(context, "WeatherWidget::onReceive, action: " + intent.getAction(), Toast.LENGTH_SHORT).show();
+        	
+        	String widgetUpdate = "Current Temp: " + Math.round(intent.getDoubleExtra(INTENT_PAYLOAD_CURRENT_TEMPERATURE, -274.0)) + ", " + intent.getStringExtra(INTENT_PAYLOAD_CURRENT_CONDITIONS);
+	        RemoteViews updateViews = new RemoteViews(context.getPackageName(), R.layout.widget_message);
+	        updateViews.setTextViewText(R.id.message, widgetUpdate);
+	        ComponentName thisWidget = new ComponentName(context, WeatherWidget.class);
+	        
+	        //set the clicking behavior
+	        Intent activityIntent = new Intent(context, WeatherActivity.class);
+	        activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+	    	PendingIntent pendingIntent = PendingIntent.getActivity(context	, 0, activityIntent, 0);
+	    	
+	        updateViews.setOnClickPendingIntent(R.id.message, pendingIntent);         
+	        
+	        AppWidgetManager manager = AppWidgetManager.getInstance(context);
+	        manager.updateAppWidget(thisWidget, updateViews);
+	        
+	        //TODO: decide what to do about the timer
+        	
         }else if(intent.getAction().equals(AppWidgetManager.ACTION_APPWIDGET_DISABLED)){
-        	cancelAlarm(context);
+        	cancelAlarm(context);        	
+        	//TODO: also kill the service!
+        	
         }
-        	    
-        
-        
         //Log.d("WeatherBeaver", "WeatherWidget::OnUpdate");
-        
-       
-        
     }
 	
     private void startAlarm(Context context, long intervalMilliseconds)
@@ -113,9 +107,8 @@ public class WeatherWidget extends BroadcastReceiver {
     	updateIntent.setAction(WeatherWidget.ACTION_UPDATE_TIMER_EXPIRED);
         //activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     	PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, updateIntent, 0);
-    	alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + intervalMilliseconds, pendingIntent);
-    	
-    	
+    	//alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + intervalMilliseconds, pendingIntent);
+    	alarmManager.setRepeating(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + intervalMilliseconds, intervalMilliseconds, pendingIntent);
     }
     
     private void cancelAlarm(Context context)
@@ -128,18 +121,20 @@ public class WeatherWidget extends BroadcastReceiver {
     	alarmManager.cancel(pendingIntent);
     	
     	
+    	
     }
     public static class UpdateService extends Service {
     	
     	//TODO: what is the state of this thing once finished=true?
-    	//TODO: add an enum(?) to track the state of this thing
     	public enum WeatherServiceStates{
-    		INITIALIZED, GETTING_WEATHER, WEATHER_AVAILABLE
+    		INITIALIZED, GETTING_WEATHER, WEATHER_AVAILABLE, UPDATE_COMPLETED
     	}
         //private Loader loader = new Loader();
     	private boolean finished = false;
     	private WeatherServiceStates state;
-    	public static WeatherData weatherUpdate = null;
+    	
+    	//No longer used.
+    	//public static WeatherData weatherUpdate = null;
     	
     	public synchronized WeatherServiceStates getState(){
     	
@@ -167,7 +162,8 @@ public class WeatherWidget extends BroadcastReceiver {
                 WeatherHelper weatherSource = null;
                 
                 try{
-                	weatherSource = WeatherHelperFactory.getWeatherHelper(true);//TODO:true means debug mode
+                	//TODO:true means debug mode
+                	weatherSource = WeatherHelperFactory.getWeatherHelper(true);
                 
 	                Log.d("WeatherBeaver", "Getting places.");
 	                Set<Place> places = weatherSource.getPlaces();
@@ -181,16 +177,19 @@ public class WeatherWidget extends BroadcastReceiver {
 		                    Log.d("WeatherBeaver","High: " + weather.getTodayHigh());
 		                    Log.d("WeatherBeaver","Low: " + weather.getTodayLow());
 		                    Log.d("WeatherBeaver","Upcoming Conditions: " + weather.getUpcomingConditions());
-		                    weatherUpdate = weather;
-		                 
-		                    /*
-		                    String widgetUpdate = "Current Temp: " + Math.round(weather.getCurrentTemp()) + ", " + weather.getCurrentConditions();
-		        	        RemoteViews updateViews = new RemoteViews(myContext.getPackageName(), R.layout.widget_message);
-		        	        updateViews.setTextViewText(R.id.message, widgetUpdate);
-		        	        ComponentName thisWidget = new ComponentName(myContext, WeatherWidget.class);
-		        	        AppWidgetManager manager = AppWidgetManager.getInstance(myContext);
-		        	        manager.updateAppWidget(thisWidget, updateViews);
-		                    */
+		                    //no longer used:
+		                    //weatherUpdate = weather;
+		                    //this is our new way to do it. Send an intent with the update, and then we can probably terminate the service
+		                    Intent updateIntent = new Intent(myContext, WeatherWidget.class);
+		                	updateIntent.setAction(WeatherWidget.ACTION_WEATHER_UPDATE_AVAILABLE);
+		                	updateIntent.putExtra(WeatherWidget.INTENT_PAYLOAD_CURRENT_CONDITIONS, weather.getCurrentConditions());
+		                	updateIntent.putExtra(WeatherWidget.INTENT_PAYLOAD_CURRENT_TEMPERATURE, weather.getCurrentTemp());
+		                    myContext.sendBroadcast(updateIntent);
+		                	setState(WeatherServiceStates.UPDATE_COMPLETED);
+
+		                    //kill the service
+		                	stopSelf();//that was easy
+		 
 	                    }
 	                    
 	                }
@@ -199,14 +198,7 @@ public class WeatherWidget extends BroadcastReceiver {
                  for(int i = 0 ; i < stacktrace.length ; i++) {
                 	 Log.d("WeatherBeaver", stacktrace[i].toString());
                  }
-                	/*
-                 String widgetUpdate = "could not find weather";
-               	 RemoteViews updateViews = new RemoteViews(myContext.getPackageName(), R.layout.widget_message);
-                 updateViews.setTextViewText(R.id.message, widgetUpdate);
-                 ComponentName thisWidget = new ComponentName(myContext, WeatherWidget.class);
-                 AppWidgetManager manager = AppWidgetManager.getInstance(myContext);
-                 manager.updateAppWidget(thisWidget, updateViews);
-                 */
+                
                  //Toast.makeText(myContext, "WeatherWidget exception during update from server", Toast.LENGTH_SHORT).show();
 
                 }
@@ -229,14 +221,7 @@ public class WeatherWidget extends BroadcastReceiver {
         	
             Log.d("WeatherBeaver", "WeatherWidget::UpdateService::onCreate");
             
-            /*
-            // Build the widget update for today
-            RemoteViews updateViews = buildUpdate(this);
-            // Push update for this widget to the home screen
-            ComponentName thisWidget = new ComponentName(this, WeatherWidget.class);
-            AppWidgetManager manager = AppWidgetManager.getInstance(this);
-            manager.updateAppWidget(thisWidget, updateViews);
-            */
+            
         }
         
         @Override
@@ -271,25 +256,10 @@ public class WeatherWidget extends BroadcastReceiver {
             // TODO build default thingy.  Maybe this is the loading thing.
             if (isLoading()) {
                 // TODO build "loading" view.
+            	//currently the loading view is the default one loaded
             }
             if (canUpdate()) {
                 // Build an update that holds the updated widget contents
-            	/*
-            	 views = new RemoteViews(context.getPackageName(), R.layout.widget_weather);
-                 Intent notificationIntent = new Intent(this, WeatherActivity.class);
-             	PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
-                 views.setOnClickPendingIntent(R.id.widget, pendingIntent); 
-                
-                String wordTitle = matcher.group(1);
-                views.setTextViewText(R.id.word_title, wordTitle);
-                views.setTextViewText(R.id.word_type, matcher.group(2));
-                views.setTextViewText(R.id.definition, matcher.group(3).trim());
-				
-                // When user clicks on widget, launch to Wiktionary definition page
-                String definePage = String.format("%s://%s/%s", ExtendedWikiHelper.WIKI_AUTHORITY,
-                        ExtendedWikiHelper.WIKI_LOOKUP_HOST, wordTitle);
-                */
-                
                 
                 
             } else {
